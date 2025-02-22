@@ -13,13 +13,6 @@ function ImageScanner() {
   const genAI = new GoogleGenerativeAI(GEMINI_API_KEY);
   const model = genAI.getGenerativeModel({ model: "gemini-1.5-flash" });
 
-  // Medicine validation patterns
-  const MEDICINE_REGEX = /^[A-Z][a-zA-Z0-9-]+(?:\s+[A-Z][a-zA-Z0-9-]+)*$/;
-  const COMMON_MISTAKES = {
-    "Paracetamol": ["Paracitamol", "Paracetemol"],
-    "Ibuprofen": ["Ibuprufen", "Ibuprofin"]
-  };
-
   const handleImageChange = (e) => {
     setError("");
     if (e.target.files && e.target.files[0]) {
@@ -60,44 +53,21 @@ function ImageScanner() {
     }
   };
 
-  const validateMedicineName = (name) => {
-    const cleanedName = name.replace(/[^a-zA-Z0-9- ]/g, "").trim();
-    
-    // Check against common typos
-    for (const [correct, typos] of Object.entries(COMMON_MISTAKES)) {
-      if (typos.includes(cleanedName)) return correct;
-    }
-    
-    return MEDICINE_REGEX.test(cleanedName) ? cleanedName : null;
-  };
-
   const detectMedicinesUsingGemini = async (text) => {
     try {
-      const prompt = `Analyze this medical prescription and list ONLY genuine pharmaceutical drug names:
+      const prompt = `Extract and verify only real medicine names from the prescription text below. 
+      Return medicine names as a comma-separated list, correcting misspellings:
       
-      Requirements:
-      1. Include both generic and brand names
-      2. Exclude medical procedures, doctor names, and non-drug items
-      3. Verify names exist in official medical databases
-      4. Correct common spelling mistakes
-      5. Format as comma-separated values
-      6. Include strength if available (e.g., "Paracetamol 500mg")
-      
-      Prescription Text: "${text}"`;
+      "${text}"`;
 
       const result = await model.generateContent(prompt);
       const responseText = (await result.response.text())
-        .replace(/["*]/g, "") // Remove special characters
-        .split(/[,\n]/) // Split by both commas and newlines
+        .replace(/["*]/g, "") 
+        .split(/[,\n]/) 
         .map(item => item.trim())
         .filter(Boolean);
 
-      // Advanced validation and correction
-      const validatedMeds = responseText
-        .map(validateMedicineName)
-        .filter(med => med && !med.match(/dose|tablet|mg|ml|cream|ointment/gi));
-
-      return [...new Set(validatedMeds)]; // Remove duplicates
+      return [...new Set(responseText)]; 
     } catch (error) {
       console.error("Error with Gemini API:", error);
       setError("Medicine detection failed");
@@ -155,7 +125,7 @@ function ImageScanner() {
       </div>
 
       {selectedImage && (
-        <div className="mb-4 bg-white p-2 shadow-sm">
+        <div className="mb-4">
           <img 
             src={selectedImage} 
             alt="Scanned prescription" 
@@ -171,36 +141,21 @@ function ImageScanner() {
         } text-white transition-colors`}
         disabled={loading}
       >
-        {loading ? (
-          <span className="flex items-center justify-center">
-            <span className="animate-spin mr-2">⏳</span>
-            Analyzing...
-          </span>
-        ) : (
-          "Scan Prescription"
-        )}
+        {loading ? "Analyzing..." : "Scan Prescription"}
       </button>
 
       {error && (
-        <div className="mt-4 p-3 bg-red-50 border border-red-200 text-red-600 rounded-lg">
-          ⚠️ {error}
+        <div className="mt-4 p-3 text-red-600 border border-red-300">
+          {error}
         </div>
       )}
 
       {detectedMedicines.length > 0 && (
-        <div className="mt-4 p-4 bg-white border border-green-200 rounded-lg shadow-sm">
-          <h2 className="text-lg font-semibold mb-3 text-gray-700">
-            Detected Medications:
-          </h2>
-          <ul className="space-y-2">
+        <div className="mt-4 p-4 border border-gray-300">
+          <h2 className="text-lg font-semibold mb-3">Detected Medicines:</h2>
+          <ul>
             {detectedMedicines.map((medicine, index) => (
-              <li 
-                key={index}
-                className="flex items-center p-2 bg-green-50 rounded-md"
-              >
-                <span className="mr-2 text-green-600">✔</span>
-                <span className="font-medium text-gray-800">{medicine}</span>
-              </li>
+              <li key={index} className="mb-1">{medicine}</li>
             ))}
           </ul>
         </div>
